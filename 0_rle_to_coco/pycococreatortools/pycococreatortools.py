@@ -8,7 +8,7 @@ from PIL import Image
 from pycocotools import mask
 
 convert = lambda text: int(text) if text.isdigit() else text.lower()
-natrual_key = lambda key: [ convert(c) for c in re.split('([0-9]+)', key) ]
+natrual_key = lambda key: [convert(c) for c in re.split('([0-9]+)', key)]
 
 def resize_binary_mask(array, new_size):
     image = Image.fromarray(array.astype(np.uint8)*255)
@@ -72,6 +72,7 @@ def create_image_info(image_id, file_name, image_size,
 
     return image_info
 
+
 def create_annotation_info(annotation_id, image_id, category_info, binary_mask, 
                            image_size=None, tolerance=2, bounding_box=None):
 
@@ -90,7 +91,7 @@ def create_annotation_info(annotation_id, image_id, category_info, binary_mask,
     if category_info["is_crowd"]:
         is_crowd = 1
         segmentation = binary_mask_to_rle(binary_mask)
-    else :
+    else:
         is_crowd = 0
         segmentation = binary_mask_to_polygon(binary_mask, tolerance)
         if not segmentation:

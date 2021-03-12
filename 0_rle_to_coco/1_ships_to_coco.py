@@ -7,15 +7,16 @@ from PIL import Image
 import numpy as np
 from pycococreatortools import pycococreatortools
 import pandas as pd
-
-from skimage.data import imread
+import math
+import imageio
 import matplotlib.pyplot as plt
 
-dataset_train = '../datasets/ships_train2018'
-csv_train = 	'../datasets/train_ship_segmentations_v2.csv'
+dataset_train = '/data/datasets/airbus-ship-detection/train/'
+csv_train = '/data/datasets/airbus-ship-detection/train_ship_segmentations_v2.csv'
+GENERATED_PATH = '/data/datasets/airbus-ship-detection/train_ship_coco.json'
 IMAGE_DIR = dataset_train
 
-df = pd.read_csv(csv_train )  										 # read csv file
+df = pd.read_csv(csv_train)  										 # read csv file
 
 INFO = {
     "description": "Kaggle Dataset",
@@ -45,6 +46,8 @@ CATEGORIES = [
 # ref: https://www.kaggle.com/paulorzp/run-length-encode-and-decode
 # mask_rle(string) --> rle_decode() -->  np.ndarry(np.unit8)    
 # shape: (height,width) , 1 - mask, 0 - background
+
+
 def rle_decode(mask_rle, shape=(768, 768)):
     s = mask_rle.split()
     starts =  np.asarray(s[0::2], dtype=int)
@@ -66,8 +69,9 @@ def filter_for_jpeg(root, files):
     
     return files
 
+
 def save_bad_ann(image_name, mask, segmentation_id):
-    img = imread(os.path.join(IMAGE_DIR, image_name))
+    img = imageio.imread(os.path.join(IMAGE_DIR, image_name))
     fig, axarr = plt.subplots(1, 3)
     axarr[0].axis('off')
     axarr[1].axis('off')
@@ -78,9 +82,10 @@ def save_bad_ann(image_name, mask, segmentation_id):
     axarr[2].imshow(mask, alpha=0.4)
     plt.tight_layout(h_pad=0.1, w_pad=0.1)
     if not os.path.exists('tmp'):
-    	os.makedirs('tmp')
-    plt.savefig( os.path.join('./tmp', image_name.split('.')[0] +'_' +str(segmentation_id) +'.png') )
+        os.makedirs('tmp')
+    plt.savefig(os.path.join('./tmp', image_name.split('.')[0] + '_' + str(segmentation_id) + '.png'))
     plt.close()
+
 
 def main():
     # 最终放进json文件里的字典
@@ -115,29 +120,32 @@ def main():
             num_of_rle_masks = len(rle_masks)
 
             for index in range(num_of_rle_masks):
-                binary_mask = rle_decode(rle_masks[index])
-                class_id = 1    # 所有图片的类别都是1，ship
-                category_info = {'id': class_id, 'is_crowd': 0}
-                annotation_info = pycococreatortools.create_annotation_info(
-                    segmentation_id, image_id, category_info, binary_mask,
-                    image.size, tolerance=2)
+                mask = rle_masks[index]
+                if isinstance(mask, str) or not np.isnan(mask):  # no mask found in this image id
+                    binary_mask = rle_decode(mask)
+                    class_id = 1    # 所有图片的类别都是1，ship
+                    category_info = {'id': class_id, 'is_crowd': 0}
+                    annotation_info = pycococreatortools.create_annotation_info(
+                        segmentation_id, image_id, category_info, binary_mask,
+                        image.size, tolerance=2)
 
-                # 不是所有的标注都会被转换,低质量标注会被过滤掉
-                # 正常的标注加入数据集，不好的标注保存供观察
-                if annotation_info is not None:
-                    coco_output["annotations"].append(annotation_info)
-                else:
-                    save_bad_ann(image_name, binary_mask, segmentation_id)
-                    
-                # 无论标注是否被写入数据集，均分配一个编号
-                segmentation_id = segmentation_id + 1   
+                    # 不是所有的标注都会被转换,低质量标注会被过滤掉
+                    # 正常的标注加入数据集，不好的标注保存供观察
+                    if annotation_info is not None:
+                        coco_output["annotations"].append(annotation_info)
+                    else:
+                        save_bad_ann(image_name, binary_mask, segmentation_id)
 
-            print("%d of %d is done."%(image_id,num_of_image_files))
+                    # 无论标注是否被写入数据集，均分配一个编号
+                    segmentation_id = segmentation_id + 1
+            if image_id % 1000 == 0:
+                print("%d of %d is done." % (image_id, num_of_image_files))
             image_id = image_id + 1
 
-    with open('../datasets/annotations/instances_ships_train2018.json', 'w') as output_json_file:
+    with open(GENERATED_PATH, 'w') as output_json_file:
         # json.dump(coco_output, output_json_file)
-        json.dump(coco_output, output_json_file,indent=4)
+        json.dump(coco_output, output_json_file, indent=4)
+
 
 if __name__ == "__main__":
     main()
