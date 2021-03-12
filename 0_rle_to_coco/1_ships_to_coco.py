@@ -107,6 +107,8 @@ def main(args):
         # Subset images
         if args.subset > 0:
             rng = np.random.default_rng(3)
+            split = len(image_paths) // 2
+            image_paths = image_paths[:split] if args.split == 'train' else image_paths[split:]
             rng.shuffle(image_paths)  # same initialization for all methods
             image_paths = image_paths[:args.subset]
 
@@ -146,16 +148,15 @@ def main(args):
                 print("%d of %d is done." % (image_id, num_of_image_files))
             image_id = image_id + 1
 
-    with open(args.output, 'w') as output_json_file:
+    with open('/data/datasets/airbus-ship-detection/annotations/instances_{}.json'.format(args.split), 'w') as output_json_file:
         # json.dump(coco_output, output_json_file)
         json.dump(coco_output, output_json_file, indent=4)
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--subset', help='Only transform to COCO some images, if 0 (default) all images are involved',
-                    type=int, default=1000)
-parser.add_argument('--output', help='output path file', type=str,
-                    default='/data/datasets/airbus-ship-detection/train_ship_coco.json')
+                    type=int, default=10000)
+parser.add_argument('--split', help='train or val', type=str, default='val')
 
 args = parser.parse_args()
 
