@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import json
 import os
@@ -7,15 +8,12 @@ from PIL import Image
 import numpy as np
 from pycococreatortools import pycococreatortools
 import pandas as pd
-import math
 import imageio
 import matplotlib.pyplot as plt
 
 dataset_train = '/data/datasets/airbus-ship-detection/train/'
 csv_train = '/data/datasets/airbus-ship-detection/train_ship_segmentations_v2.csv'
-GENERATED_PATH = '/data/datasets/airbus-ship-detection/train_ship_coco.json'
 IMAGE_DIR = dataset_train
-
 df = pd.read_csv(csv_train)  										 # read csv file
 
 INFO = {
@@ -87,7 +85,7 @@ def save_bad_ann(image_name, mask, segmentation_id):
     plt.close()
 
 
-def main():
+def main(args):
     # 最终放进json文件里的字典
     coco_output = {
         "info": INFO,
@@ -105,6 +103,12 @@ def main():
     for root, _, files in os.walk(IMAGE_DIR):
         image_paths = filter_for_jpeg(root, files)  # 图片文件地址
         num_of_image_files = len(image_paths)       # 图片个数
+
+        # Subset images
+        if args.subset > 0:
+            rng = np.random.default_rng(3)
+            rng.shuffle(image_paths)  # same initialization for all methods
+            image_paths = image_paths[:args.subset]
 
         # 遍历每一张图片
         for image_path in image_paths:
@@ -142,10 +146,18 @@ def main():
                 print("%d of %d is done." % (image_id, num_of_image_files))
             image_id = image_id + 1
 
-    with open(GENERATED_PATH, 'w') as output_json_file:
+    with open(args.output, 'w') as output_json_file:
         # json.dump(coco_output, output_json_file)
         json.dump(coco_output, output_json_file, indent=4)
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--subset', help='Only transform to COCO some images, if 0 (default) all images are involved',
+                    type=int, default=1000)
+parser.add_argument('--output', help='output path file', type=str,
+                    default='/data/datasets/airbus-ship-detection/train_ship_coco.json')
+
+args = parser.parse_args()
+
 if __name__ == "__main__":
-    main()
+    main(args)
